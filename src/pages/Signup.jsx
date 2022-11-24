@@ -3,6 +3,17 @@ import { AiFillEye, AiFillEyeInvisible } from "react-icons/ai";
 import { Link } from "react-router-dom";
 import { OAuth } from "../components/OAuth";
 
+import { db } from "../firebase";
+import {
+  createUserWithEmailAndPassword,
+  updateProfile,
+  getAuth,
+} from "firebase/auth";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+
 export const SignUp = () => {
   const [formData, setFormData] = useState({
     name: "",
@@ -15,6 +26,8 @@ export const SignUp = () => {
 
   const { name, email, password } = formData;
 
+  const navigate = useNavigate();
+
   function onChange(e) {
     setFormData((prevState) => ({
       ...prevState,
@@ -22,6 +35,36 @@ export const SignUp = () => {
       // that makes it easier to get the value
       [e.target.id]: e.target.value,
     }));
+  }
+
+  async function onSubmit(e) {
+    e.preventDefault(); // prevent the from from refreshing itself
+
+    try {
+      const auth = getAuth();
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+      // add the name to our db
+      updateProfile(auth.currentUser, {
+        displayName: name,
+      });
+
+      const user = userCredential.user;
+      const formDataCopy = { ...formData };
+      delete formData.password;
+      formDataCopy.timestamp = serverTimestamp();
+      toast.success("Sign up was successfully");
+
+      await setDoc(doc(db, "users", user.uid), formDataCopy);
+
+      navigate("/");
+    } catch (error) {
+      toast.error("Something went wrong with the registration");
+    }
   }
 
   return (
@@ -36,8 +79,8 @@ export const SignUp = () => {
           />
         </div>
         <div className="w-full md:w-[67%] lg:w-[40%] lg:ml-20">
-          <form>
-          <input
+          <form onSubmit={onSubmit}>
+            <input
               type="name"
               id="name"
               value={name}
